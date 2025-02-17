@@ -43,7 +43,7 @@ public class RenameHome {
                 return;
             }
 
-            if (HomeUtil.checkName(player, msg, newName)) return;
+            if (HomeUtil.checkName(player, newName)) return;
 
             List<Home> homes = HomesManager.getHomes(target.getUniqueId());
             for (Home h : homes) {
@@ -64,7 +64,7 @@ public class RenameHome {
             return;
         }
 
-        if(HomeUtil.checkName(player, msg, newName)) return;
+        if(HomeUtil.checkName(player, newName)) return;
 
         List<Home> homes = HomesManager.getHomes(player.getUniqueId());
 

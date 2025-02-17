@@ -53,7 +53,7 @@ public class RelocateHome {
                 return;
             }
 
-            if (HomeUtil.checkName(player, msg, homeName)) return;
+            if (HomeUtil.checkName(player, homeName)) return;
 
             List<Home> homes = HomesManager.getHomes(target.getUniqueId());
             for (Home h : homes) {
