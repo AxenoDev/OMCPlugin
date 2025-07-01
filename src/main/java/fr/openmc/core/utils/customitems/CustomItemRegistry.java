@@ -55,6 +55,8 @@ public class CustomItemRegistry {
         new DiamondHammer();
         new NetheriteHammer();
 
+        new BuilderWand();
+
         new SuitHelmet();
         new SuitChestplate();
         new SuitLeggings();
