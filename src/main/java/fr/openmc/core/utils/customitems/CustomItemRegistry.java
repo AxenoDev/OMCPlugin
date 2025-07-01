@@ -50,6 +50,11 @@ public class CustomItemRegistry {
         new MascotWand();
         new WarpWand();
 
+        /* Hammer */
+        new IronHammer();
+        new DiamondHammer();
+        new NetheriteHammer();
+
         new SuitHelmet();
         new SuitChestplate();
         new SuitLeggings();
