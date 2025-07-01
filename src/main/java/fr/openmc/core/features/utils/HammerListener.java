@@ -30,13 +30,12 @@ public class HammerListener implements Listener {
         if (!player.getGameMode().equals(GameMode.SURVIVAL))
             return;
 
-        int radius = 0;
+        int radius;
         int x, y, z;
         int depth = 0;
 
         if (Objects.equals(CustomItemRegistry.getByName("omc_items:iron_hammer").getBest().getType(), item.getType())) {
             radius = 1;
-            depth = 0;
         } else if (Objects.equals(CustomItemRegistry.getByName("omc_items:diamond_hammer").getBest().getType(), item.getType())) {
             radius = 1;
             depth = 1;
