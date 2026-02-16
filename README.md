@@ -1,5 +1,5 @@
-# Plugin OpenMC
-Nouveau plugin collaboratif pour un serveur : VOTRE serveur !
+# OpenMC Plugin
+New collaborative plugin for a server: YOUR server!
 
 <a href="https://github.com/ServerOpenMC/PluginV2/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=ServerOpenMC/PluginV2" alt="Contributors" />
@@ -11,24 +11,24 @@ Nouveau plugin collaboratif pour un serveur : VOTRE serveur !
   </a>
 </p>
 
-## 🤝 Rejoindre le développement.
-1. Commencez par forker le dépôt et rejoindre le [Discord](https://discord.gg/aywen)
-2. Assurez-vous de bien suivre [CONTRIBUTING.md](https://github.com/ServerOpenMC/PluginV2/blob/master/CONTRIBUTING.md)
-3. Une fois qu'une fonctionnalité est implémentée et fonctionnelle, créez une pull request.
-4. Après approbation, elle sera disponible sur le serveur de développement pour les tests.
+## 🤝 Join the Development
+1. Start by forking the repository and joining the [Discord](https://discord.gg/aywen)
+2. Make sure to carefully follow [CONTRIBUTING.md](https://github.com/ServerOpenMC/PluginV2/blob/master/CONTRIBUTING.md)
+3. Once a feature is implemented and fully working, create a pull request.
+4. After approval, it will be available on the development server for testing.
 
-Serveur de test : `dev.openmc.fr` (1.21.10 Java Edition)
+Development Server: `dev.openmc.fr` (1.21.10 Java Edition)
 
-Serveur de la beta : `beta.openmc.fr` (1.21.10 Java Edition)
+Beta Server: `beta.openmc.fr` (1.21.10 Java Edition)
 
-Serveur de jeu : `play.openmc.fr` (1.21.10 Java Edition)
+Production Server: `play.openmc.fr` (1.21.10 Java Edition)
 
-## 📘 En apprendre plus.
-Vous voulez en savoir plus ? Vous voulez avoir des tutoriels à propos d'OpenMC ?
-Cliquez [ici](https://github.com/ServerOpenMC/PluginV2/wiki) afin d'accéder au wiki
+## 📘 Learn More
+Want to learn more? Looking for tutorials about OpenMC?  
+Click [here](https://github.com/ServerOpenMC/PluginV2/wiki) to access the wiki.
 
 ## 📃 License
-Projet sous [GPL-3.0 license](https://choosealicense.com/licenses/gpl-3.0/).
+Project licensed under the [GPL-3.0 license](https://choosealicense.com/licenses/gpl-3.0/).
 
 ---
-Merci à @MathiasDPX pour la nouvelle configuration du repo.
+Thanks to @MathiasDPX for the new repository configuration.
