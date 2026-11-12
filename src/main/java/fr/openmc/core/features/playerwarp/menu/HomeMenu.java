@@ -1,0 +1,169 @@
+package fr.openmc.core.features.playerwarp.menu;
+
+import dev.lone.itemsadder.api.FontImages.FontImageWrapper;
+import fr.openmc.api.omcplayer.OMCOfflinePlayer;
+import fr.openmc.api.omcplayer.OMCPlayer;
+import fr.openmc.api.menulib.PaginatedMenu;
+import fr.openmc.api.menulib.template.ItemMenuTemplate;
+import fr.openmc.api.menulib.utils.InventorySize;
+import fr.openmc.api.menulib.utils.ItemMenuBuilder;
+import fr.openmc.api.menulib.utils.ItemUtils;
+import fr.openmc.core.OMCPlugin;
+import fr.openmc.core.OMCRegistry;
+import fr.openmc.core.features.homes.events.HomeTpEvent;
+import fr.openmc.core.features.homes.icons.HomeIcon;
+import fr.openmc.core.features.homes.icons.HomeIconRegistry;
+import fr.openmc.core.features.homes.models.Home;
+import fr.openmc.core.utils.text.messages.Prefix;
+import fr.openmc.core.utils.text.messages.TranslationManager;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class HomeMenu extends PaginatedMenu {
+
+    private final OMCOfflinePlayer target;
+    private boolean wasTarget = false;
+
+    public HomeMenu(OMCPlayer player, OMCOfflinePlayer target) {
+        super(player);
+        this.target = target;
+        this.wasTarget = true;
+    }
+
+    public HomeMenu(OMCPlayer player) {
+        super(player);
+        this.target = player;
+    }
+
+    @Override
+    public @NotNull InventorySize getInventorySize() {
+        return InventorySize.LARGEST;
+    }
+
+    @Override
+    public int getSizeOfItems() {
+        return getItems().size();
+    }
+
+    @Override
+    public @NotNull Component getName() {
+        return TranslationManager.translation("feature.homes.menu.title");
+    }
+
+    @Override
+    public String getTexture() {
+        return FontImageWrapper.replaceFontImages("§r§f:offset_-8::omc_homes_menus_home:");
+    }
+
+    @Override
+    public @Nullable Material getBorderMaterial() {
+        return null;
+    }
+
+    @Override
+    public @NotNull List<Integer> getStaticSlots() {
+        List<Integer> staticSlots = new ArrayList<>();
+        staticSlots.add(45);
+        staticSlots.add(48);
+        staticSlots.add(49);
+        staticSlots.add(50);
+        staticSlots.add(53);
+
+        return staticSlots;
+    }
+
+    @Override
+    public List<ItemStack> getItems() {
+        List<ItemStack> items = new ArrayList<>();
+        for (Home home : target.home().getHomes()) {
+            HomeIcon homeIcon = home.getIcon();
+            if (homeIcon == null) {
+                homeIcon = HomeIconRegistry.getDefaultIcon();
+                home.setIcon(homeIcon);
+            }
+            try {
+                items.add(new ItemMenuBuilder(this, HomeIconRegistry.getIconOrDefault(home.getIcon().id()).getItemStack(), itemMeta -> {
+                    itemMeta.displayName(TranslationManager.translation(
+                            "feature.homes.home.name",
+                            Component.text(home.getName()).color(NamedTextColor.YELLOW)
+                    ));
+                    itemMeta.lore(TranslationManager.translationLore("feature.homes.menu.item.lore"));
+                }).hide(ItemUtils.getDataComponentType()).setOnClick(event -> {
+                    if (event.isLeftClick()) {
+                        this.getInventory().close();
+                        getOwner().teleportAsync(home.getLocation()).thenAccept(success -> {
+                            new BukkitRunnable() {
+                                @Override
+                                public void run() {
+                                    Bukkit.getPluginManager().callEvent(new HomeTpEvent(home, getOwner()));
+                                }
+                            }.runTask(OMCPlugin.getInstance());
+                            getOwner().message().sendSuccess(
+                                    TranslationManager.translation(
+                                            "feature.homes.menu.teleport.success",
+                                            Component.text(home.getName()).color(NamedTextColor.YELLOW)
+                                    ),
+                                    Prefix.HOME,
+                                    true
+                            );
+                        });
+                    } else if (event.isRightClick()) {
+                        OMCPlayer player = OMCPlayer.of((Player) event.getWhoClicked());
+                        new HomeConfigMenu(player, home).open();
+                    }
+                }));
+            } catch (Exception e) {
+                getOwner().message().sendError(TranslationManager.translation("feature.homes.menu.error"), Prefix.OPENMC, false);
+                getOwner().closeInventory();
+                throw new RuntimeException("Failed to create HomeMenu item for home: " + home.getName(), e);
+            }
+        }
+        return items;
+    }
+
+    @Override
+    public List<Integer> getTakableSlot() {
+        return List.of();
+    }
+
+    @Override
+    public Map<Integer, ItemMenuBuilder> getButtons() {
+        Map<Integer, ItemMenuBuilder> map = new HashMap<>();
+
+        if (!wasTarget) {
+            map.put(53, new ItemMenuBuilder(this, OMCRegistry.CUSTOM_ITEMS.HOMES_ICON_UPGRADE, itemMeta -> {
+                itemMeta.displayName(TranslationManager.translation("feature.homes.menu.upgrade.name"));
+                itemMeta.lore(TranslationManager.translationLore("feature.homes.menu.upgrade.lore"));
+            }).setOnClick(event -> new HomeUpgradeMenu(getOwner()).open()));
+        }
+
+        map.put(48, ItemMenuTemplate.BTN_PREVIOUS_PAGE_WHITE.apply(this));
+        map.put(49, ItemMenuTemplate.BTN_CLOSE.apply(this));
+        map.put(50, ItemMenuTemplate.BTN_NEXT_PAGE_WHITE.apply(this));
+
+        return map;
+    }
+
+    @Override
+    public void onInventoryClick(InventoryClickEvent inventoryClickEvent) {
+    }
+
+    @Override
+    public void onClose(InventoryCloseEvent event) {
+        //empty
+    }
+}
