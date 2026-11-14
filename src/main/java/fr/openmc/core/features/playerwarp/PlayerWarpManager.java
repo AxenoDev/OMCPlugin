@@ -4,74 +4,186 @@ import com.j256.ormlite.dao.Dao;
 import com.j256.ormlite.dao.DaoManager;
 import com.j256.ormlite.support.ConnectionSource;
 import com.j256.ormlite.table.TableUtils;
+import fr.openmc.api.omcplayer.OMCPlayer;
+import fr.openmc.core.OMCPlugin;
 import fr.openmc.core.bootstrap.features.Feature;
 import fr.openmc.core.bootstrap.features.annotations.Credit;
 import fr.openmc.core.bootstrap.features.types.HasCommands;
 import fr.openmc.core.bootstrap.features.types.HasDatabase;
-import fr.openmc.core.bootstrap.integration.DatabaseManager;
-import fr.openmc.core.features.homes.command.*;
-import fr.openmc.core.features.homes.models.Home;
+import fr.openmc.core.features.homes.icons.HomeIcon;
+import fr.openmc.core.features.homes.icons.HomeIconRegistry;
+import fr.openmc.core.features.playerwarp.command.PlayerWarpCommand;
+import fr.openmc.core.features.playerwarp.events.PlayerWarpCreateEvent;
+import fr.openmc.core.features.playerwarp.events.PlayerWarpTpEvent;
 import fr.openmc.core.features.playerwarp.models.PlayerWarp;
-import lombok.Getter;
+import fr.openmc.core.utils.text.messages.Prefix;
+import fr.openmc.core.utils.text.messages.TranslationManager;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.entity.Player;
+import org.jetbrains.annotations.Nullable;
 
 import java.sql.SQLException;
-import java.util.HashSet;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Credit(developers = { "Axeno" })
-@Getter
 public class PlayerWarpManager extends Feature implements HasDatabase, HasCommands {
 
-    public static final Set<PlayerWarp> playerwarps = new HashSet<>();
+    public enum Result {
+        SUCCESS, ALREADY_HAS_WARP, NO_WARP, NAME_TAKEN, INVALID_WORLD
+    }
+
+    private static final Map<UUID, PlayerWarp> WARPS = new ConcurrentHashMap<>();
+    private static Dao<PlayerWarp, UUID> playerWarpDao;
 
     @Override
     public void init() {
-        loadPlayerWarp();
+        load();
     }
 
     @Override
     public Set<Object> getCommands() {
-        return Set.of(
-                new SetHomeCommand(),
-                new RenameHomeCommand(),
-                new DelHomeCommand(),
-                new RelocateHomeCommand(),
-                new TpHomeCommand(),
-                new HomeWorldCommand());
+        return Set.of(new PlayerWarpCommand());
     }
 
     @Override
     public void save() {
-        savePlayerWarp();
+        try {
+            for (PlayerWarp pw : WARPS.values()) {
+                playerWarpDao.createOrUpdate(pw);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Erreur de sauvegarde des PlayerWarp", e);
+        }
     }
-
-    // DB methods
-
-    private static Dao<PlayerWarp, UUID> playerwarpDao;
 
     @Override
     public void initDB(ConnectionSource connectionSource) throws SQLException {
         TableUtils.createTableIfNotExists(connectionSource, PlayerWarp.class);
-        playerwarpDao = DaoManager.createDao(connectionSource, PlayerWarp.class);
+        playerWarpDao = DaoManager.createDao(connectionSource, PlayerWarp.class);
     }
 
-    private static void loadPlayerWarp() {
+    private static void load() {
         try {
-            playerwarps.addAll(playerwarpDao.queryForAll());
-        } catch (SQLException e) {
-            throw new RuntimeException("Erreur de chargement des PlayerWarp ", e);
-        }
-    }
-
-    private static void savePlayerWarp() {
-        try {
-            TableUtils.clearTable(DatabaseManager.getConnectionSource(), Home.class);
-            for (PlayerWarp pw : playerwarps) {
-                playerwarpDao.createOrUpdate(pw);
+            for (PlayerWarp pw : playerWarpDao.queryForAll()) {
+                WARPS.put(pw.getOwner(), pw);
             }
         } catch (SQLException e) {
-            throw new RuntimeException("Erreur de sauvegarde des PlayerWarp ", e);
+            throw new RuntimeException("Erreur de chargement des PlayerWarp", e);
         }
+    }
+
+    public static Collection<PlayerWarp> getPlayerWarps() {
+        return Collections.unmodifiableCollection(WARPS.values());
+    }
+
+    public static @Nullable PlayerWarp getWarp(UUID owner) {
+        return WARPS.get(owner);
+    }
+
+    public static boolean hasWarp(UUID owner) {
+        return WARPS.containsKey(owner);
+    }
+
+    public static @Nullable PlayerWarp getWarpByName(String name) {
+        for (PlayerWarp pw : WARPS.values()) {
+            if (pw.getName().equalsIgnoreCase(name))
+                return pw;
+        }
+        return null;
+    }
+
+    private static boolean isNameTaken(String name, @Nullable UUID ignoredOwner) {
+        PlayerWarp existing = getWarpByName(name);
+        return existing != null && !existing.getOwner().equals(ignoredOwner);
+    }
+
+    public static Result createWarp(Player player, String name) {
+        UUID uuid = player.getUniqueId();
+        if (hasWarp(uuid))
+            return Result.ALREADY_HAS_WARP;
+        if (isNameTaken(name, null))
+            return Result.NAME_TAKEN;
+
+        HomeIcon icon = HomeIconRegistry.getDefaultIcon();
+        PlayerWarp warp = new PlayerWarp(uuid, name, player.getLocation(), icon);
+        WARPS.put(uuid, warp);
+        persist(warp);
+
+        Bukkit.getPluginManager().callEvent(new PlayerWarpCreateEvent(warp, player));
+        return Result.SUCCESS;
+    }
+
+    public static Result deleteWarp(UUID owner) {
+        PlayerWarp warp = WARPS.remove(owner);
+        if (warp == null)
+            return Result.NO_WARP;
+
+        Bukkit.getScheduler().runTaskAsynchronously(OMCPlugin.getInstance(), () -> {
+            try {
+                playerWarpDao.deleteById(owner);
+            } catch (SQLException e) {
+                OMCPlugin.getInstance().getLogger()
+                        .severe("Impossible de supprimer le PlayerWarp " + owner + " : " + e.getMessage());
+            }
+        });
+        return Result.SUCCESS;
+    }
+
+    public static Result renameWarp(PlayerWarp warp, String newName) {
+        if (isNameTaken(newName, warp.getOwner()))
+            return Result.NAME_TAKEN;
+        warp.setName(newName);
+        persist(warp);
+        return Result.SUCCESS;
+    }
+
+    public static void relocateWarp(PlayerWarp warp, Location location) {
+        warp.setLocation(location);
+        persist(warp);
+    }
+
+    public static void changeIcon(PlayerWarp warp, HomeIcon icon) {
+        warp.setIcon(icon);
+        persist(warp);
+    }
+
+    public static Result teleport(Player player, PlayerWarp warp) {
+        Location location = warp.getLocation();
+        if (location == null)
+            return Result.INVALID_WORLD;
+
+        player.teleportAsync(location).thenAccept(success -> {
+            if (!success)
+                return;
+            Bukkit.getScheduler().runTask(OMCPlugin.getInstance(), () -> {
+                Bukkit.getPluginManager().callEvent(new PlayerWarpTpEvent(warp, player));
+                OMCPlayer.of(player).message().sendSuccess(
+                        TranslationManager.translation(
+                                "feature.playerwarp.teleport.success",
+                                Component.text(warp.getName()).color(NamedTextColor.YELLOW)),
+                        Prefix.HOME,
+                        true);
+            });
+        });
+        return Result.SUCCESS;
+    }
+
+    private static void persist(PlayerWarp warp) {
+        Bukkit.getScheduler().runTaskAsynchronously(OMCPlugin.getInstance(), () -> {
+            try {
+                playerWarpDao.createOrUpdate(warp);
+            } catch (SQLException e) {
+                OMCPlugin.getInstance().getLogger()
+                        .severe("Impossible de sauvegarder le PlayerWarp " + warp.getOwner() + " : " + e.getMessage());
+            }
+        });
     }
 }

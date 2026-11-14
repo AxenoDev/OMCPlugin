@@ -13,21 +13,22 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.UUID;
 
 @Getter
-@DatabaseTable(tableName = "homes")
+@DatabaseTable(tableName = "playerwarps")
 public class PlayerWarp {
 
-    @DatabaseField(id = true, canBeNull = false, unique = true)
+    @DatabaseField(id = true, canBeNull = false)
     private UUID owner;
     @Setter
     @DatabaseField(canBeNull = false)
     private String name;
-    @Setter
     @DatabaseField(canBeNull = false)
     private String iconId;
 
@@ -52,79 +53,28 @@ public class PlayerWarp {
     public PlayerWarp(UUID owner, String name, Location location, HomeIcon icon) {
         this.owner = owner;
         this.name = name;
-        setLocation(location);
         this.iconId = icon.getSaveId();
+        setLocation(location);
     }
 
-    public PlayerWarp(UUID owner, String name, Location location, LegacyHomeIcon legacyIcon) {
-        this(owner, name, location, HomeIconRegistry.fromLegacyHomeIcon(legacyIcon));
-    }
-
-    public Location getLocation() {
-        return new Location(Bukkit.getWorld(world), x, y, z, yaw, pitch);
+    public @Nullable Location getLocation() {
+        World bukkitWorld = Bukkit.getWorld(world);
+        if (bukkitWorld == null)
+            return null;
+        return new Location(bukkitWorld, x, y, z, yaw, pitch);
     }
 
     public void setLocation(Location location) {
         world = location.getWorld().getName();
-        x = (double) Math.round(location.getX() * 10d) / 10d;
-        y = (double) Math.round(location.getY() * 10d) / 10d;
-        z = (double) Math.round(location.getZ() * 10d) / 10d;
+        x = round(location.getX());
+        y = round(location.getY());
+        z = round(location.getZ());
         yaw = location.getYaw();
         pitch = location.getPitch();
     }
 
-    public String serializeLocation() {
-        Location location = getLocation();
-        return location.getWorld().getName() + "," +
-                (double) Math.round(location.getX() * 10d) / 10d + "," +
-                (double) Math.round(location.getY() * 10d) / 10d + "," +
-                (double) Math.round(location.getZ() * 10d) / 10d + "," +
-                location.getYaw() + "," +
-                location.getPitch();
-    }
-
-    public static Location deserializeLocation(String locString) {
-        String[] loc = locString.split(",");
-        return new Location(
-                org.bukkit.Bukkit.getWorld(loc[0]),
-                Double.parseDouble(loc[1]),
-                Double.parseDouble(loc[2]),
-                Double.parseDouble(loc[3]),
-                Float.parseFloat(loc[4]),
-                Float.parseFloat(loc[5]));
-    }
-
-    public ItemStack getIconItem() {
-        ItemStack item = getIcon().getItemStack().clone();
-        ItemMeta meta = item.getItemMeta();
-        Location location = getLocation();
-        meta.displayName(TranslationManager.translation(
-                "feature.playerwarps.playerwarp.name",
-                Component.text(name).color(NamedTextColor.GREEN)
-        ));
-        item.lore(TranslationManager.translationLore(
-                "feature.playerwarps.playerwarp.lore",
-                Component.text(location.getWorld().getName()).color(NamedTextColor.YELLOW),
-                Component.text(location.getX()).color(NamedTextColor.YELLOW),
-                Component.text(location.getY()).color(NamedTextColor.YELLOW),
-                Component.text(location.getZ()).color(NamedTextColor.YELLOW)
-        ));
-        item.setItemMeta(meta);
-        return item;
-    }
-
-    public String getIconSaveId() {
-        return iconId;
-    }
-
-    @Override
-    public String toString() {
-        return "PlayerWarp{" +
-                "owner=" + owner +
-                ", name='" + name + '\'' +
-                ", location=" + serializeLocation() +
-                ", icon=" + iconId +
-                '}';
+    private static double round(double value) {
+        return Math.round(value * 10d) / 10d;
     }
 
     public HomeIcon getIcon() {
@@ -145,5 +95,27 @@ public class PlayerWarp {
 
     public void setIcon(HomeIcon icon) {
         this.iconId = icon.getSaveId();
+    }
+
+    public ItemStack getIconItem() {
+        ItemStack item = getIcon().getItemStack().clone();
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(TranslationManager.translation(
+                "feature.playerwarp.item.name",
+                Component.text(name).color(NamedTextColor.GREEN)));
+        item.setItemMeta(meta);
+        item.lore(TranslationManager.translationLore(
+                "feature.playerwarp.item.lore",
+                Component.text(world).color(NamedTextColor.YELLOW),
+                Component.text(x).color(NamedTextColor.YELLOW),
+                Component.text(y).color(NamedTextColor.YELLOW),
+                Component.text(z).color(NamedTextColor.YELLOW)));
+        return item;
+    }
+
+    @Override
+    public String toString() {
+        return "PlayerWarp{owner=" + owner + ", name='" + name + "', world=" + world +
+                ", x=" + x + ", y=" + y + ", z=" + z + ", icon=" + iconId + '}';
     }
 }

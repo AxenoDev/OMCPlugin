@@ -1,6 +1,6 @@
 package fr.openmc.core.features.playerwarp.events;
 
-import fr.openmc.core.features.homes.models.Home;
+import fr.openmc.core.features.playerwarp.models.PlayerWarp;
 import lombok.Getter;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
@@ -8,15 +8,15 @@ import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.NotNull;
 
 @Getter
-public class HomeTpEvent extends Event {
+public class PlayerWarpTpEvent extends Event {
 
-    private final Home home;
+    private final PlayerWarp playerWarp;
     private final Player player;
 
     private static final HandlerList HANDLERS = new HandlerList();
 
-    public HomeTpEvent(Home toHome, Player player) {
-        this.home = toHome;
+    public PlayerWarpTpEvent(PlayerWarp playerWarp, Player player) {
+        this.playerWarp = playerWarp;
         this.player = player;
     }
 

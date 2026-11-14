@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+import os, sys, subprocess, requests
+
+PANEL    = "https://panel.athena.axeno.me"
+SERVER   = "cc6c2303-096b-4f95-aa58-99159f5aa4c7"
+API_KEY  = "hydro_yNJ1weZgluqBHcRymF7ClHYf11Z54MKmliB8aw3gUY"   # clé API client (ptlc_...)
+TARGET   = "/plugins"
+RESTART  = True                         # True pour redémarrer après l'upload
+
+PROJECT_DIR = "."
+JAR_CANDIDATES = ["builds/OpenMC.jar"]
+
+BASE = f"{PANEL}/api/client/servers/elytra/{SERVER}"   # préfixe Hydrodactyl
+
+H = {
+    "Authorization": f"Bearer {API_KEY}",
+    "Accept": "application/json",
+}
+
+def build():
+    gradlew = "gradlew.bat" if os.name == "nt" else "./gradlew"
+    print("🔨 Compilation (shadowJar)...")
+    if subprocess.run([gradlew, "shadowJar"], cwd=PROJECT_DIR).returncode != 0:
+        sys.exit("❌ La compilation a échoué")
+
+def find_jar():
+    for c in JAR_CANDIDATES:
+        p = os.path.join(PROJECT_DIR, c)
+        if os.path.isfile(p):
+            return p
+    sys.exit(f"❌ Jar introuvable. Cherché : {', '.join(JAR_CANDIDATES)}")
+
+def upload(path):
+    name = os.path.basename(path)
+
+    # 1. URL signée fournie par le panel
+    r = requests.get(f"{BASE}/files/upload", headers=H, params={"directory": TARGET})
+    r.raise_for_status()
+    url = r.json()["attributes"]["url"]
+
+    # 2. Envoi direct à Elytra
+    with open(path, "rb") as f:
+        r = requests.post(url, params={"directory": TARGET},
+                          files={"files": (name, f)})
+    if not r.ok:
+        sys.exit(f"❌ Upload refusé ({r.status_code}) : {r.text[:300]}")
+    print(f"✅ {name} envoyé dans {TARGET}")
+
+def restart():
+    r = requests.post(f"{BASE}/power", headers=H, json={"signal": "restart"})
+    if not r.ok:
+        sys.exit(f"❌ Redémarrage refusé ({r.status_code}) : {r.text[:300]}")
+    print("🔄 Redémarrage demandé")
+
+if __name__ == "__main__":
+    build()
+    upload(find_jar())
+    if RESTART:
+        restart()

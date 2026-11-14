@@ -50,6 +50,7 @@ import fr.openmc.core.features.leaderboards.LeaderBoardManager;
 import fr.openmc.core.features.mailboxes.MailboxManager;
 import fr.openmc.core.features.mainmenu.MainMenu;
 import fr.openmc.core.features.milestones.MilestonesManager;
+import fr.openmc.core.features.playerwarp.PlayerWarpManager;
 import fr.openmc.core.features.privatemessage.PrivateMessageManager;
 import fr.openmc.core.features.privatemessage.SocialSpyManager;
 import fr.openmc.core.features.profile.ProfileManager;
@@ -144,7 +145,8 @@ public class OMCPlugin extends JavaPlugin {
             BossbarManager::new,
             ShopManager::new,
             HomeIconCacheManager::new,
-            DimensionOpenerManager::new
+            DimensionOpenerManager::new,
+            PlayerWarpManager::new
     ));
 
     public static final List<Feature> loadedFeature = new ArrayList<>();

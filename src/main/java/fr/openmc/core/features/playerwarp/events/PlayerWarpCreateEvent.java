@@ -1,24 +1,23 @@
 package fr.openmc.core.features.playerwarp.events;
 
-import fr.openmc.core.features.homes.models.Home;
+import fr.openmc.core.features.playerwarp.models.PlayerWarp;
 import lombok.Getter;
+import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.UUID;
-
 @Getter
-public class HomeCreateEvent extends Event {
-
-    private final Home home;
-    private final UUID ownerUUID;
+public class PlayerWarpCreateEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();
 
-    public HomeCreateEvent(Home home, UUID ownerUUID) {
-        this.home = home;
-        this.ownerUUID = ownerUUID;
+    private final PlayerWarp playerWarp;
+    private final Player player;
+
+    public PlayerWarpCreateEvent(PlayerWarp playerWarp, Player player) {
+        this.playerWarp = playerWarp;
+        this.player = player;
     }
 
     public static HandlerList getHandlerList() {
@@ -29,5 +28,4 @@ public class HomeCreateEvent extends Event {
     public @NotNull HandlerList getHandlers() {
         return HANDLERS;
     }
-
 }
