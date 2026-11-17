@@ -56,17 +56,14 @@ public class PlayerWarpConfigMenu extends Menu {
         Map<Integer, ItemMenuBuilder> content = new HashMap<>();
         OMCPlayer player = getOwner();
 
-        // Aperçu du warp
         content.put(4, new ItemMenuBuilder(this, warp.getIconItem()).hide(ItemUtils.getDataComponentType()));
-
-        // Renommer
         content.put(20, new ItemMenuBuilder(this, Material.NAME_TAG, meta -> {
             meta.displayName(TranslationManager.translation("feature.playerwarp.config.rename.name"));
             meta.lore(TranslationManager.translationLore("feature.playerwarp.config.rename.lore"));
-        }).setOnClick(e -> DialogInput.send(player, TranslationManager.translation("feature.playerwarp.config.rename.prompt"), MAX_LENGTH_HOME_NAME, input -> {
-            if (input == null || !HomeUtil.isValidHomeName(input)) return;
+        }).setOnClick(_ -> DialogInput.send(player, TranslationManager.translation("feature.playerwarp.config.rename.prompt"), MAX_LENGTH_HOME_NAME, input -> {
+            if (!HomeUtil.isValidHomeName(input)) return;
 
-            if (PlayerWarpManager.renameWarp(warp, input) == Result.NAME_TAKEN) {
+            if (PlayerWarpManager.renameWarp(warp, input).equals(Result.NAME_TAKEN)) {
                 player.message().sendError(TranslationManager.translation("feature.playerwarp.command.name_taken"), Prefix.HOME, true);
                 return;
             }
@@ -75,12 +72,14 @@ public class PlayerWarpConfigMenu extends Menu {
                     Component.text(input).color(NamedTextColor.YELLOW)
             ), Prefix.HOME, true);
         })));
-
-        // Déplacer à ma position
+        content.put(21, new ItemMenuBuilder(this, Material.ITEM_FRAME, meta -> {
+            meta.displayName(TranslationManager.translation("feature.playerwarp.config.icon.name"));
+            meta.lore(TranslationManager.translationLore("feature.playerwarp.config.icon.lore"));
+        }).setOnClick(_ -> new PlayerWarpIconMenu(player, warp).open()));
         content.put(22, new ItemMenuBuilder(this, Material.COMPASS, meta -> {
             meta.displayName(TranslationManager.translation("feature.playerwarp.config.relocate.name"));
             meta.lore(TranslationManager.translationLore("feature.playerwarp.config.relocate.lore"));
-        }).setOnClick(e -> {
+        }).setOnClick(_ -> {
             PlayerWarpManager.relocateWarp(warp, player.getLocation());
             player.message().sendSuccess(TranslationManager.translation(
                     "feature.playerwarp.relocate.success",
@@ -89,7 +88,6 @@ public class PlayerWarpConfigMenu extends Menu {
             player.closeInventory();
         }));
 
-        // Supprimer
         content.put(24, new ItemMenuBuilder(this, OMCRegistry.CUSTOM_ITEMS.HOMES_ICON_BIN_RED, meta -> {
             meta.displayName(TranslationManager.translation("feature.playerwarp.config.delete.name"));
             meta.lore(TranslationManager.translationLore("feature.playerwarp.config.delete.lore"));
@@ -97,7 +95,6 @@ public class PlayerWarpConfigMenu extends Menu {
 
         content.put(36, ItemMenuTemplate.BTN_PREVIOUS_PAGE_WHITE.apply(this).setBackButton());
         content.put(44, ItemMenuTemplate.BTN_CLOSE.apply(this));
-
         return content;
     }
 

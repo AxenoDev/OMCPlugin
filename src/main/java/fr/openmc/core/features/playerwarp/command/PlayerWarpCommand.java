@@ -4,124 +4,117 @@ import fr.openmc.api.omcplayer.OMCPlayer;
 import fr.openmc.core.features.homes.utils.HomeUtil;
 import fr.openmc.core.features.playerwarp.PlayerWarpManager;
 import fr.openmc.core.features.playerwarp.PlayerWarpManager.Result;
+import fr.openmc.core.features.playerwarp.command.autocomplete.PlayerWarpAutoComplete;
 import fr.openmc.core.features.playerwarp.menu.PlayerWarpConfigMenu;
 import fr.openmc.core.features.playerwarp.menu.PlayerWarpMenu;
 import fr.openmc.core.features.playerwarp.models.PlayerWarp;
-import fr.openmc.core.utils.text.messages.Prefix;
 import fr.openmc.core.utils.text.messages.TranslationManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.entity.Player;
-import revxrsal.commands.annotation.Command;
-import revxrsal.commands.annotation.Description;
+import revxrsal.commands.annotation.*;
+import revxrsal.commands.bukkit.annotation.CommandPermission;
 
+@Command({"pw", "pwarp", "playerwarp"})
 public class PlayerWarpCommand {
 
-    @Command({"pw", "pwarp", "playerwarp"})
+    @CommandPlaceholder
     @Description("Ouvre le menu des warps")
-    public void open(Player player) {
-        new PlayerWarpMenu(OMCPlayer.of(player)).open();
+    public void open(OMCPlayer player) {
+        new PlayerWarpMenu(player).open();
     }
 
-    @Command({"pw set", "pwarp set", "playerwarp set"})
+    @Subcommand("create")
     @Description("Crée ton warp (1 maximum)")
-    public void set(Player player, String name) {
-        OMCPlayer omc = OMCPlayer.of(player);
+    @CommandPermission("omc.playerwarp.create")
+    public void create(OMCPlayer player, String name) {
         if (!HomeUtil.isValidHomeName(name)) {
-            error(omc, "feature.playerwarp.command.invalid_name");
+            player.message().sendError(TranslationManager.translation("feature.playerwarp.command.invalid_name"));
             return;
         }
-        switch (PlayerWarpManager.createWarp(player, name)) {
-            case SUCCESS -> success(omc, "feature.playerwarp.command.set.success", name);
-            case ALREADY_HAS_WARP -> error(omc, "feature.playerwarp.command.set.already_has");
-            case NAME_TAKEN -> error(omc, "feature.playerwarp.command.name_taken");
-            default -> error(omc, "feature.playerwarp.command.error");
+        switch (PlayerWarpManager.createWarp(player.getUniqueId(), name, player.getLocation())) {
+            case SUCCESS -> player.message().sendSuccess(TranslationManager.translation(
+                    "feature.playerwarp.command.create.success",
+                    Component.text(name).color(NamedTextColor.YELLOW)));
+            case ALREADY_HAS_WARP ->
+                    player.message().sendError(TranslationManager.translation("feature.playerwarp.command.create.already_has"));
+            case NAME_TAKEN ->
+                    player.message().sendError(TranslationManager.translation("feature.playerwarp.command.name_taken"));
+            default -> player.message().sendError(TranslationManager.translation("feature.playerwarp.command.error"));
         }
     }
 
-    @Command({"pw delete", "pwarp delete", "playerwarp delete"})
+    @Subcommand("delete")
     @Description("Supprime ton warp")
-    public void delete(Player player) {
-        OMCPlayer omc = OMCPlayer.of(player);
-        PlayerWarp warp = PlayerWarpManager.getWarp(player.getUniqueId());
-        if (warp == null) {
-            error(omc, "feature.playerwarp.command.no_warp");
-            return;
-        }
-        PlayerWarpManager.deleteWarp(player.getUniqueId());
-        success(omc, "feature.playerwarp.delete.success", warp.getName());
+    @CommandPermission("omc.playerwarp.delete")
+    public void delete(OMCPlayer player) {
+        PlayerWarp warp = PlayerWarpManager.getWarp(player.getPlayer().getUniqueId());
+        if (PlayerWarpManager.deleteWarp(player.getPlayer().getUniqueId()).equals(Result.NO_WARP))
+            player.message().sendError(TranslationManager.translation("feature.playerwarp.command.no_warp"));
+        else
+            player.message().sendSuccess(TranslationManager.translation(
+                    "feature.playerwarp.command.delete.success",
+                    Component.text(warp.getName()).color(NamedTextColor.YELLOW)));
     }
 
-    @Command({"pw rename", "pwarp rename", "playerwarp rename"})
+    @Subcommand("rename")
     @Description("Renomme ton warp")
-    public void rename(Player player, String newName) {
-        OMCPlayer omc = OMCPlayer.of(player);
-        PlayerWarp warp = PlayerWarpManager.getWarp(player.getUniqueId());
+    @CommandPermission("omc.playerwarp.rename")
+    public void rename(OMCPlayer player, String newName) {
+        PlayerWarp warp = PlayerWarpManager.getWarp(player.getPlayer().getUniqueId());
         if (warp == null) {
-            error(omc, "feature.playerwarp.command.no_warp");
+            player.message().sendError(TranslationManager.translation("feature.playerwarp.command.no_warp"));
             return;
         }
         if (!HomeUtil.isValidHomeName(newName)) {
-            error(omc, "feature.playerwarp.command.invalid_name");
+            player.message().sendError(TranslationManager.translation("feature.playerwarp.command.invalid_name"));
             return;
         }
-        if (PlayerWarpManager.renameWarp(warp, newName) == Result.NAME_TAKEN) {
-            error(omc, "feature.playerwarp.command.name_taken");
+        if (PlayerWarpManager.renameWarp(warp, newName).equals(Result.NAME_TAKEN)) {
+            player.message().sendError(TranslationManager.translation("feature.playerwarp.command.name_taken"));
             return;
         }
-        success(omc, "feature.playerwarp.rename.success", newName);
+        player.message().sendSuccess(TranslationManager.translation(
+                "feature.playerwarp.command.rename.success",
+                Component.text(newName).color(NamedTextColor.YELLOW)));
     }
 
-    @Command({"pw relocate", "pwarp relocate", "playerwarp relocate"})
+    @Subcommand("relocate")
     @Description("Déplace ton warp à ta position")
-    public void relocate(Player player) {
-        OMCPlayer omc = OMCPlayer.of(player);
-        PlayerWarp warp = PlayerWarpManager.getWarp(player.getUniqueId());
+    @CommandPermission("omc.playerwarp.relocate")
+    public void relocate(OMCPlayer player) {
+        PlayerWarp warp = PlayerWarpManager.getWarp(player.getPlayer().getUniqueId());
         if (warp == null) {
-            error(omc, "feature.playerwarp.command.no_warp");
+            player.message().sendError(TranslationManager.translation("feature.playerwarp.command.no_warp"));
             return;
         }
-        PlayerWarpManager.relocateWarp(warp, player.getLocation());
-        success(omc, "feature.playerwarp.relocate.success", warp.getName());
+        PlayerWarpManager.relocateWarp(warp, player.getPlayer().getLocation());
+        player.message().sendSuccess(TranslationManager.translation(
+                "feature.playerwarp.command.relocate.success",
+                Component.text(warp.getName()).color(NamedTextColor.YELLOW)));
     }
 
-    @Command({"pw settings", "pwarp settings", "playerwarp settings"})
+    @Subcommand("settings")
     @Description("Ouvre le menu de configuration de ton warp")
-    public void settings(Player player) {
-        OMCPlayer omc = OMCPlayer.of(player);
-        PlayerWarp warp = PlayerWarpManager.getWarp(player.getUniqueId());
+    @CommandPermission("omc.playerwarp.settings")
+    public void settings(OMCPlayer player) {
+        PlayerWarp warp = PlayerWarpManager.getWarp(player.getPlayer().getUniqueId());
         if (warp == null) {
-            error(omc, "feature.playerwarp.command.no_warp");
+            player.message().sendError(TranslationManager.translation("feature.playerwarp.command.no_warp"));
             return;
         }
-        new PlayerWarpConfigMenu(omc, warp).open();
+        new PlayerWarpConfigMenu(player, warp).open();
     }
 
-    @Command({"pw tp", "pwarp tp", "playerwarp tp"})
+    @Subcommand("tp")
     @Description("Se téléporter à un warp")
-    public void tp(Player player, String name) {
-        OMCPlayer omc = OMCPlayer.of(player);
+    public void tp(OMCPlayer player, @SuggestWith(PlayerWarpAutoComplete.class) String name) {
         PlayerWarp warp = PlayerWarpManager.getWarpByName(name);
         if (warp == null) {
-            error(omc, "feature.playerwarp.command.tp.not_found");
+            player.message().sendError(TranslationManager.translation("feature.playerwarp.command.tp.not_found"));
             return;
         }
-        if (PlayerWarpManager.teleport(player, warp) == Result.INVALID_WORLD) {
-            error(omc, "feature.playerwarp.command.tp.invalid_world");
+        if (PlayerWarpManager.teleport(player, warp).equals(Result.INVALID_WORLD)) {
+            player.message().sendError(TranslationManager.translation("feature.playerwarp.command.tp.invalid_world"));
         }
-    }
-
-    // ---- helpers ----
-
-    private static void error(OMCPlayer player, String key) {
-        player.message().sendError(TranslationManager.translation(key), Prefix.HOME, true);
-    }
-
-    private static void success(OMCPlayer player, String key, String name) {
-        player.message().sendSuccess(
-                TranslationManager.translation(key, Component.text(name).color(NamedTextColor.YELLOW)),
-                Prefix.HOME,
-                true
-        );
     }
 }

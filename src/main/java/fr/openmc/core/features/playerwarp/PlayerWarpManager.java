@@ -10,6 +10,7 @@ import fr.openmc.core.bootstrap.features.Feature;
 import fr.openmc.core.bootstrap.features.annotations.Credit;
 import fr.openmc.core.bootstrap.features.types.HasCommands;
 import fr.openmc.core.bootstrap.features.types.HasDatabase;
+import fr.openmc.core.bootstrap.integration.DatabaseManager;
 import fr.openmc.core.features.homes.icons.HomeIcon;
 import fr.openmc.core.features.homes.icons.HomeIconRegistry;
 import fr.openmc.core.features.playerwarp.command.PlayerWarpCommand;
@@ -22,53 +23,17 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.entity.Player;
 import org.jetbrains.annotations.Nullable;
 
 import java.sql.SQLException;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Credit(developers = { "Axeno" })
+@Credit(developers = {"Axeno"})
 public class PlayerWarpManager extends Feature implements HasDatabase, HasCommands {
-
-    public enum Result {
-        SUCCESS, ALREADY_HAS_WARP, NO_WARP, NAME_TAKEN, INVALID_WORLD
-    }
 
     private static final Map<UUID, PlayerWarp> WARPS = new ConcurrentHashMap<>();
     private static Dao<PlayerWarp, UUID> playerWarpDao;
-
-    @Override
-    public void init() {
-        load();
-    }
-
-    @Override
-    public Set<Object> getCommands() {
-        return Set.of(new PlayerWarpCommand());
-    }
-
-    @Override
-    public void save() {
-        try {
-            for (PlayerWarp pw : WARPS.values()) {
-                playerWarpDao.createOrUpdate(pw);
-            }
-        } catch (SQLException e) {
-            throw new RuntimeException("Erreur de sauvegarde des PlayerWarp", e);
-        }
-    }
-
-    @Override
-    public void initDB(ConnectionSource connectionSource) throws SQLException {
-        TableUtils.createTableIfNotExists(connectionSource, PlayerWarp.class);
-        playerWarpDao = DaoManager.createDao(connectionSource, PlayerWarp.class);
-    }
 
     private static void load() {
         try {
@@ -105,19 +70,17 @@ public class PlayerWarpManager extends Feature implements HasDatabase, HasComman
         return existing != null && !existing.getOwner().equals(ignoredOwner);
     }
 
-    public static Result createWarp(Player player, String name) {
-        UUID uuid = player.getUniqueId();
-        if (hasWarp(uuid))
+    public static Result createWarp(UUID owner, String name, Location location) {
+        if (hasWarp(owner))
             return Result.ALREADY_HAS_WARP;
         if (isNameTaken(name, null))
             return Result.NAME_TAKEN;
 
         HomeIcon icon = HomeIconRegistry.getDefaultIcon();
-        PlayerWarp warp = new PlayerWarp(uuid, name, player.getLocation(), icon);
-        WARPS.put(uuid, warp);
-        persist(warp);
+        PlayerWarp warp = new PlayerWarp(owner, name, location, icon);
+        WARPS.put(owner, warp);
 
-        Bukkit.getPluginManager().callEvent(new PlayerWarpCreateEvent(warp, player));
+        Bukkit.getPluginManager().callEvent(new PlayerWarpCreateEvent(warp, owner));
         return Result.SUCCESS;
     }
 
@@ -126,14 +89,6 @@ public class PlayerWarpManager extends Feature implements HasDatabase, HasComman
         if (warp == null)
             return Result.NO_WARP;
 
-        Bukkit.getScheduler().runTaskAsynchronously(OMCPlugin.getInstance(), () -> {
-            try {
-                playerWarpDao.deleteById(owner);
-            } catch (SQLException e) {
-                OMCPlugin.getInstance().getLogger()
-                        .severe("Impossible de supprimer le PlayerWarp " + owner + " : " + e.getMessage());
-            }
-        });
         return Result.SUCCESS;
     }
 
@@ -141,31 +96,30 @@ public class PlayerWarpManager extends Feature implements HasDatabase, HasComman
         if (isNameTaken(newName, warp.getOwner()))
             return Result.NAME_TAKEN;
         warp.setName(newName);
-        persist(warp);
         return Result.SUCCESS;
     }
 
     public static void relocateWarp(PlayerWarp warp, Location location) {
         warp.setLocation(location);
-        persist(warp);
     }
 
     public static void changeIcon(PlayerWarp warp, HomeIcon icon) {
         warp.setIcon(icon);
-        persist(warp);
     }
 
-    public static Result teleport(Player player, PlayerWarp warp) {
+    public static Result teleport(OMCPlayer player, PlayerWarp warp) {
         Location location = warp.getLocation();
         if (location == null)
             return Result.INVALID_WORLD;
+        if (player == null)
+            return Result.PLAYER_OFFLINE;
 
         player.teleportAsync(location).thenAccept(success -> {
             if (!success)
                 return;
             Bukkit.getScheduler().runTask(OMCPlugin.getInstance(), () -> {
                 Bukkit.getPluginManager().callEvent(new PlayerWarpTpEvent(warp, player));
-                OMCPlayer.of(player).message().sendSuccess(
+                player.message().sendSuccess(
                         TranslationManager.translation(
                                 "feature.playerwarp.teleport.success",
                                 Component.text(warp.getName()).color(NamedTextColor.YELLOW)),
@@ -176,14 +130,35 @@ public class PlayerWarpManager extends Feature implements HasDatabase, HasComman
         return Result.SUCCESS;
     }
 
-    private static void persist(PlayerWarp warp) {
-        Bukkit.getScheduler().runTaskAsynchronously(OMCPlugin.getInstance(), () -> {
-            try {
-                playerWarpDao.createOrUpdate(warp);
-            } catch (SQLException e) {
-                OMCPlugin.getInstance().getLogger()
-                        .severe("Impossible de sauvegarder le PlayerWarp " + warp.getOwner() + " : " + e.getMessage());
+    @Override
+    public void init() {
+        load();
+    }
+
+    @Override
+    public Set<Object> getCommands() {
+        return Set.of(new PlayerWarpCommand());
+    }
+
+    @Override
+    public void save() {
+        try {
+            TableUtils.clearTable(DatabaseManager.getConnectionSource(), PlayerWarp.class);
+            for (PlayerWarp pw : WARPS.values()) {
+                playerWarpDao.create(pw);
             }
-        });
+        } catch (SQLException e) {
+            throw new RuntimeException("Erreur de sauvegarde des PlayerWarp", e);
+        }
+    }
+
+    @Override
+    public void initDB(ConnectionSource connectionSource) throws SQLException {
+        TableUtils.createTableIfNotExists(connectionSource, PlayerWarp.class);
+        playerWarpDao = DaoManager.createDao(connectionSource, PlayerWarp.class);
+    }
+
+    public enum Result {
+        SUCCESS, ALREADY_HAS_WARP, NO_WARP, NAME_TAKEN, INVALID_WORLD, PLAYER_OFFLINE
     }
 }

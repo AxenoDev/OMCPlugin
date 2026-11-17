@@ -61,7 +61,6 @@ public class PlayerWarpMenu extends PaginatedMenu {
     public List<ItemStack> getItems() {
         UUID self = getOwner().getUniqueId();
 
-        // Ton warp en premier, puis ordre alphabétique
         List<PlayerWarp> warps = new ArrayList<>(PlayerWarpManager.getPlayerWarps());
         warps.sort(Comparator
                 .comparing((PlayerWarp w) -> !w.getOwner().equals(self))
